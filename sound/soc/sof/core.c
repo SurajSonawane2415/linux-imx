@@ -211,7 +211,7 @@ static int sof_machine_check(struct snd_sof_dev *sdev)
 
 nocodec:
 	/* select nocodec mode */
-	dev_warn(sdev->dev, "Using nocodec machine driver\n");
+	dev_err(sdev->dev, "Using nocodec machine driver\n");
 	mach = devm_kzalloc(sdev->dev, sizeof(*mach), GFP_KERNEL);
 	if (!mach)
 		return -ENOMEM;
@@ -746,6 +746,8 @@ int sof_machine_register(struct snd_sof_dev *sdev, void *pdata)
 	mach = plat_data->machine;
 	size = sizeof(*plat_data->machine);
 
+	dev_err(sdev->dev, "SOF: Registering machine driver '%s'\n", drv_name);
+
 	/* register machine driver, pass machine info as pdata */
 	plat_data->pdev_mach =
 		platform_device_register_data(sdev->dev, drv_name,
@@ -753,7 +755,7 @@ int sof_machine_register(struct snd_sof_dev *sdev, void *pdata)
 	if (IS_ERR(plat_data->pdev_mach))
 		return PTR_ERR(plat_data->pdev_mach);
 
-	dev_dbg(sdev->dev, "created machine %s\n",
+	dev_err(sdev->dev, "created machine %s\n",
 		dev_name(&plat_data->pdev_mach->dev));
 
 	return 0;

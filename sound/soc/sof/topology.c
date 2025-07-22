@@ -298,6 +298,7 @@ static const struct sof_dai_types sof_dais[] = {
 	{"ACPHS_VIRTUAL", SOF_DAI_AMD_HS_VIRTUAL},
 	{"MICFIL", SOF_DAI_IMX_MICFIL},
 	{"ACP_SDW", SOF_DAI_AMD_SDW},
+	{"DAI_VIRTUAL", SOF_DAI_VIRTUAL},
 
 };
 
@@ -1069,44 +1070,65 @@ static int sof_connect_dai_widget(struct snd_soc_component *scomp,
 		return -EINVAL;
 	}
 
+	dev_err(scomp->dev, "DAI connect: widget name=%s, sname=%s, id=%d\n",
+		w->name, w->sname, w->id);
+	dev_err(scomp->dev, "DAI connect: expect id dai_in=%d or dai_out=%d\n",
+		snd_soc_dapm_dai_in, snd_soc_dapm_dai_out);
+
 	if (w->id == snd_soc_dapm_dai_out)
 		stream = SNDRV_PCM_STREAM_CAPTURE;
 	else if (w->id == snd_soc_dapm_dai_in)
 		stream = SNDRV_PCM_STREAM_PLAYBACK;
-	else
+	else {
+		dev_err(scomp->dev, "DAI connect: widget %s has unsupported id %d\n", w->name, w->id);
 		goto end;
+	}
 
 	list_for_each_entry(rtd, &card->rtd_list, list) {
-		/* does stream match DAI link ? */
-		if (!rtd->dai_link->stream_name ||
-		    !strstr(rtd->dai_link->stream_name, w->sname))
+		if (!rtd->dai_link) {
+			dev_err(scomp->dev, "DAI connect: rtd with NULL dai_link\n");
 			continue;
+		}
+
+		if (!rtd->dai_link->stream_name) {
+			dev_err(scomp->dev, "DAI connect: DAI link %s has no stream name\n", rtd->dai_link->name);
+			continue;
+		}
+
+		dev_err(scomp->dev, "DAI connect: checking stream_name='%s' for link='%s'\n",
+			rtd->dai_link->stream_name, rtd->dai_link->name);
+
+		if (!strstr(rtd->dai_link->stream_name, w->sname)) {
+			dev_err(scomp->dev, "DAI connect: stream name mismatch: sname='%s' not in '%s'\n",
+				w->sname, rtd->dai_link->stream_name);
+			continue;
+		}
+
+		dev_err(scomp->dev, "DAI connect: MATCH found for %s\n", rtd->dai_link->name);
 
 		for_each_rtd_cpu_dais(rtd, i, cpu_dai) {
-			/*
-			 * Please create DAI widget in the right order
-			 * to ensure BE will connect to the right DAI
-			 * widget.
-			 */
 			if (!snd_soc_dai_get_widget(cpu_dai, stream)) {
 				snd_soc_dai_set_widget(cpu_dai, stream, w);
+				dev_err(scomp->dev, "DAI connect: widget %s set on CPU DAI %s (stream %d)\n",
+					w->name, cpu_dai->name, stream);
 				break;
 			}
 		}
-		if (i == rtd->dai_link->num_cpus) {
-			dev_err(scomp->dev, "error: can't find BE for DAI %s\n", w->name);
 
+		if (i == rtd->dai_link->num_cpus) {
+			dev_err(scomp->dev, "error: can't find free BE CPU DAI for widget %s\n", w->name);
 			return -EINVAL;
 		}
 
 		dai->name = rtd->dai_link->name;
-		dev_dbg(scomp->dev, "tplg: connected widget %s -> DAI link %s\n",
+		dev_err(scomp->dev, "tplg: connected widget %s -> DAI link %s\n",
 			w->name, rtd->dai_link->name);
 	}
+
 end:
-	/* check we have a connection */
 	if (!dai->name) {
-		dev_err(scomp->dev, "error: can't connect DAI %s stream %s\n",
+		dev_err(scomp->dev,
+			"error: can't connect DAI '%s', sname='%s' (likely DAI link mismatch)\n",
 			w->name, w->sname);
 		return -EINVAL;
 	}
@@ -1947,6 +1969,10 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
 	case SOF_DAI_IMX_ESAI:
 		token_id = SOF_ESAI_TOKENS;
 		num_tuples += token_list[SOF_ESAI_TOKENS].count;
+		break;
+	case SOF_DAI_VIRTUAL:
+		token_id = SOF_DAI_VIRTUAL_TOKENS;
+		num_tuples += token_list[SOF_DAI_VIRTUAL_TOKENS].count;
 		break;
 	case SOF_DAI_MEDIATEK_AFE:
 		token_id = SOF_AFE_TOKENS;

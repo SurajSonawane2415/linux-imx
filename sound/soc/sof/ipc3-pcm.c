@@ -336,6 +336,16 @@ static int sof_ipc3_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
 		channels->min = private->dai_config->sai.tdm_slots;
 		channels->max = private->dai_config->sai.tdm_slots;
 
+		dev_info(component->dev, "rate_min: %d rate_max: %d\n", rate->min, rate->max);
+		dev_info(component->dev, "channels_min: %d channels_max: %d\n",
+			channels->min, channels->max);
+		break;
+	case SOF_DAI_VIRTUAL:
+		rate->min = private->dai_config->virtual_dai.fsync_rate;
+		rate->max = private->dai_config->virtual_dai.fsync_rate;
+		channels->min = private->dai_config->virtual_dai.tdm_slots;
+		channels->max = private->dai_config->virtual_dai.tdm_slots;
+
 		dev_dbg(component->dev, "rate_min: %d rate_max: %d\n", rate->min, rate->max);
 		dev_dbg(component->dev, "channels_min: %d channels_max: %d\n",
 			channels->min, channels->max);

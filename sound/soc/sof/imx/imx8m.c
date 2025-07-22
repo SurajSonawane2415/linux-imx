@@ -22,6 +22,7 @@
 #include "../ops.h"
 #include "../sof-of-dev.h"
 #include "imx-common.h"
+#include "../sof-audio.h"
 
 #define MBOX_OFFSET	0x800000
 #define MBOX_SIZE	0x1000
@@ -284,6 +285,13 @@ static int imx8m_get_bar_index(struct snd_sof_dev *sdev, u32 type)
 
 static struct snd_soc_dai_driver imx8m_dai[] = {
 {
+	.name = "virtual_dai14",
+	.playback = {
+		.channels_min = 1,
+		.channels_max = 32,
+	},
+},
+{
 	.name = "sai1",
 	.playback = {
 		.channels_min = 1,
@@ -410,6 +418,21 @@ static int imx8m_dsp_suspend(struct snd_sof_dev *sdev, unsigned int target_state
 	return snd_sof_dsp_set_power_state(sdev, &target_dsp_state);
 }
 
+void imx_set_mach_params(struct snd_soc_acpi_mach *mach,
+						 struct snd_sof_dev *sdev)
+{
+	struct snd_sof_pdata *pdata = sdev->pdata;
+	const struct sof_dev_desc *desc = pdata->desc;
+	struct snd_soc_acpi_mach_params *mach_params;
+
+	mach_params = &mach->mach_params;
+	mach_params->platform = dev_name(sdev->dev);
+
+	/* Use the dai_drivers and num_dai_drivers from ops */
+	mach_params->num_dai_drivers = desc->ops->num_drv;
+	mach_params->dai_drivers = desc->ops->drv;
+}
+
 /* i.MX8 ops */
 static const struct snd_sof_dsp_ops sof_imx8m_ops = {
 	/* probe and remove */
@@ -453,6 +476,10 @@ static const struct snd_sof_dsp_ops sof_imx8m_ops = {
 	/* DAI drivers */
 	.drv = imx8m_dai,
 	.num_drv = ARRAY_SIZE(imx8m_dai),
+
+	.set_mach_params = imx_set_mach_params,
+	.machine_register = sof_machine_register,
+	.machine_unregister = sof_machine_unregister,
 
 	.suspend	= imx8m_dsp_suspend,
 	.resume		= imx8m_dsp_resume,

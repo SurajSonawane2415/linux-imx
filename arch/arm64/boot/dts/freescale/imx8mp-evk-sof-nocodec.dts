@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2020
+
+#include "imx8mp-evk.dts"
+
+/delete-node/ &dsp_reserved_heap;
+/delete-node/ &dsp_vdev0vring0;
+/delete-node/ &dsp_vdev0vring1;
+/delete-node/ &dsp_vdev0buffer;
+
+&{/} {
+	reserved-memory {
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+		};
+	};
+
+	/* Disable unused sound cards to avoid conflicts */
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+};
+
+&dsp {
+	compatible = "fsl,imx8mp-dsp";
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3>;
+
+	power-domains = <&audiomix_pd>;
+
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_OCRAMA_IPG>,
+		 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSP_ROOT>,
+		 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSPDBG_ROOT>,
+		 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>,
+		 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SDMA3_ROOT>;
+
+	clock-names = "ipg", "ocram", "core",
+		      "sai3_bus", "sdma3_root";
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&mu2 2 0>, <&mu2 2 1>,
+		 <&mu2 3 0>, <&mu2 3 1>;
+
+	memory-region = <&dsp_reserved>;
+
+	/delete-property/ firmware-name;
+
+	/* SOF will auto-select sof-nocodec driver */
+	tplg-name = "sof-imx-nocodec.tplg";
+	status = "okay";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+&easrc {
+	status = "disabled";
+};

@@ -293,38 +293,49 @@ static int ipc3_wait_tx_done(struct snd_sof_ipc *ipc, void *reply_data)
 	struct snd_sof_dev *sdev = ipc->sdev;
 	int ret;
 
+	dev_info(sdev->dev, "DEBUG: Entered %s for cmd=0x%x size=%d reply_size=%zu\n",
+		 __func__, hdr->cmd, hdr->size, msg->reply_size);
+
 	/* wait for DSP IPC completion */
 	ret = wait_event_timeout(msg->waitq, msg->ipc_complete,
 				 msecs_to_jiffies(sdev->ipc_timeout));
 
 	if (ret == 0) {
 		dev_err(sdev->dev,
-			"ipc tx timed out for %#x (msg/reply size: %d/%zu)\n",
+			"ERROR: ipc tx timed out for cmd=0x%x (msg/reply size: %d/%zu)\n",
 			hdr->cmd, hdr->size, msg->reply_size);
-		snd_sof_handle_fw_exception(ipc->sdev, "IPC timeout");
+		snd_sof_handle_fw_exception(sdev, "IPC timeout");
 		ret = -ETIMEDOUT;
 	} else {
 		ret = msg->reply_error;
+
 		if (ret < 0) {
 			dev_err(sdev->dev,
-				"ipc tx error for %#x (msg/reply size: %d/%zu): %d\n",
+				"ERROR: ipc tx failed for cmd=0x%x (msg/reply size: %d/%zu), err=%d\n",
 				hdr->cmd, hdr->size, msg->reply_size, ret);
 		} else {
+			dev_info(sdev->dev,
+				 "DEBUG: ipc tx succeeded for cmd=0x%x (reply size: %zu)\n",
+				 hdr->cmd, msg->reply_size);
+
 			if (sof_debug_check_flag(SOF_DBG_PRINT_IPC_SUCCESS_LOGS))
 				ipc3_log_header(sdev->dev, "ipc tx succeeded", hdr->cmd);
-			if (reply_data && msg->reply_size)
-				/* copy the data returned from DSP */
-				memcpy(reply_data, msg->reply_data,
-				       msg->reply_size);
+
+			if (reply_data && msg->reply_size) {
+				dev_dbg(sdev->dev, "DEBUG: copying %zu bytes of reply data\n", msg->reply_size);
+				memcpy(reply_data, msg->reply_data, msg->reply_size);
+			}
 		}
 
-		/* re-enable dumps after successful IPC tx */
+		/* Reset debug dump flags */
 		if (sdev->ipc_dump_printed) {
+			dev_dbg(sdev->dev, "DEBUG: Clearing IPC dump printed flags\n");
 			sdev->dbg_dump_printed = false;
 			sdev->ipc_dump_printed = false;
 		}
 	}
 
+	dev_info(sdev->dev, "DEBUG: Exiting %s with ret=%d\n", __func__, ret);
 	return ret;
 }
 
